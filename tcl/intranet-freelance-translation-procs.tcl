@@ -117,7 +117,9 @@ ad_proc im_freelance_trans_member_select_component {
 		im_freelance_skill_list(u.user_id, :target_lang_skill_type) as target_langs,
 		im_freelance_skill_list(u.user_id, :subject_area_skill_type) as subject_area
 	from
-		cc_users u,
+		users u,
+		group_member_map m, 
+		membership_rels mr,
 		(
 			select	user_id
 			from	im_freelance_skills
@@ -132,13 +134,17 @@ ad_proc im_freelance_trans_member_select_component {
 				and substr(im_category_from_id(skill_id), 1, 2) in ([join $project_target_langs ","])
 		) tls
 	where
-		1=1
-		and sls.user_id = u.user_id
-		and tls.user_id = u.user_id
+		m.group_id = acs__magic_object_id('registered_users'::character varying) AND 
+		m.rel_id = mr.rel_id AND 
+		m.container_id = m.group_id AND 
+		m.rel_type::text = 'membership_rel'::text AND 
+		mr.member_state::text = 'approved'::text AND 
+		u.user_id = m.member_id AND
+		sls.user_id = u.user_id AND
+		tls.user_id = u.user_id
 	order by
 		user_name
     "
-
 
     # ------------------------------------------------
     # Determine the price ranges per freelancer
@@ -147,28 +153,63 @@ ad_proc im_freelance_trans_member_select_component {
 		f.user_id,
 		c.company_id,
 		p.uom_id,
+		im_category_from_id(p.task_type_id) as task_type,
+		im_category_from_id(p.source_language_id) as source_language,
+		im_category_from_id(p.target_language_id) as target_language,
+		im_category_from_id(p.subject_area_id) as subject_area,
+		im_category_from_id(p.file_type_id) as file_type,
 		min(p.price) as min_price,
 		max(p.price) as max_price
 	from
 		($freelance_sql) f
-		LEFT OUTER JOIN acs_rels uc_rel
-			ON (f.user_id = uc_rel.object_id_two)
-		LEFT OUTER JOIN im_trans_prices p
-			ON (uc_rel.object_id_one = p.company_id),
+		LEFT OUTER JOIN acs_rels uc_rel	ON (f.user_id = uc_rel.object_id_two)
+		LEFT OUTER JOIN im_trans_prices p ON (uc_rel.object_id_one = p.company_id),
 		im_companies c
 	where
 		p.company_id = c.company_id
 	group by
 		f.user_id,
 		c.company_id,
-		p.uom_id
+		p.uom_id,
+		p.task_type_id,
+		p.source_language_id,
+		p.target_language_id,
+		p.subject_area_id,
+		p.file_type_id
+	order by min(p.price)
     "
+
 
     db_foreach price_hash $price_sql {
 	set key "$user_id-$uom_id"
-	set price_hash($key) "$min_price - $max_price"
-	if {$min_price == $max_price} { set price_hash($key) "$min_price" }
 
+	# Calculate the base cell value
+	set price_append "$min_price - $max_price"
+	if {$min_price == $max_price} { set price_append "$min_price" }
+
+
+	# Add the list of parameters
+	set param_list [list "$source_language->$target_language"]
+	if {"" == $source_language && "" == $target_language} { set param_list [list] }
+
+	if {"" != $subject_area} { lappend param_list $subject_area }
+	if {"" != $task_type} { append param_list $task_type }
+	if {"" != $file_type} { append param_list $file_type }
+
+	set params [join $param_list ", "]
+	if {[llength $param_list] > 0} { set params "($params)" }
+
+
+	set hash_append "<nobr>$price_append $params</nobr>"
+
+	# Update the hash table cell
+	set hash ""
+	if {[info exists price_hash($key)]} { set hash $price_hash($key) }
+	if {"" != $hash} { append hash "<br>" }
+	set price_hash($key) "$hash $hash_append"
+
+
+	# deal with sorting the array be one of the 
 	switch $freel_trans_order_by {
             "s-word" {
 		if {$uom_id == 324} {
