@@ -193,8 +193,8 @@ ad_proc im_freelance_trans_member_select_component {
 	if {"" == $source_language && "" == $target_language} { set param_list [list] }
 
 	if {"" != $subject_area} { lappend param_list $subject_area }
-	if {"" != $task_type} { append param_list $task_type }
-	if {"" != $file_type} { append param_list $file_type }
+	if {"" != $task_type} { lappend param_list $task_type }
+	if {"" != $file_type} { lappend param_list $file_type }
 
 	set params [join $param_list ", "]
 	if {[llength $param_list] > 0} { set params "($params)" }
