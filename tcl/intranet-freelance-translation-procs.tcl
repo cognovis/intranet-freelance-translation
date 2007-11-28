@@ -66,34 +66,33 @@ ad_proc im_freelance_trans_member_select_component {
     set default_role_id 1300
     
     # How many static columns?
-    set colspan 5
+    set colspan 2
 
     set bgcolor(0) " class=roweven "
     set bgcolor(1) " class=rowodd "
 
+    set source_lang_skill_type 2000
+    set target_lang_skill_type 2002
 
-    set source_lang_skill_type [db_string source_lang "
-		select	category_id 
-		from	im_categories 
-		where	category = 'Source Language' 
-			and category_type = 'Intranet Skill Type'" \
-    -default 0]
-    set target_lang_skill_type [db_string target_lang "
-		select	category_id	
-		from	im_categories	
-		where	category = 'Target Language'
-			and category_type = 'Intranet Skill Type'" \
-    -default 0]
-    set subject_area_skill_type [db_string target_lang "
-		select	category_id	
-		from	im_categories	
-		where	category = 'Subjects' 
-			and category_type = 'Intranet Skill Type'" \
-    -default 0]
+    set skill_type_sql "
+	select	category_id as skill_type_id,
+		category as skill_type
+	from	im_categories
+	where	(enabled_p = 't' OR enabled_p is NULL)
+		and category_type = 'Intranet Skill Type'
+	order by category_id
+    "
+    set skill_type_list [list]
+    db_foreach skill_type $skill_type_sql {
+	lappend skill_type_list $skill_type
+	set skill_type_hash($skill_type) $skill_type_id
+    }
+
+    # Project's Source & Target Languages
     set project_source_lang [db_string source_lang "
-		select	substr(im_category_from_id(source_language_id), 1, 2) 
-		from	im_projects 
-		where	project_id = :object_id" \
+                select  substr(im_category_from_id(source_language_id), 1, 2)
+                from    im_projects
+                where   project_id = :object_id" \
     -default 0]
 
     set project_target_langs [db_list target_langs "
@@ -103,19 +102,22 @@ ad_proc im_freelance_trans_member_select_component {
     "]
     if {0 == [llength $project_target_langs]} { set project_target_langs [list "'none'"]}
 
-#    ad_return_complaint 1 "$source_lang_skill_type $target_lang_skill_type $subject_area_skill_type $project_source_lang '$project_target_langs'"
 
     # ------------------------------------------------
     # Put together the main SQL
 
+    set skill_type_sql ""
+    foreach skill_type $skill_type_list {
+	set skill_type_id $skill_type_hash($skill_type)
+	append skill_type_sql "\t\tim_freelance_skill_list(u.user_id, $skill_type_id) as skill_$skill_type_id,\n"
+    }
+
     set freelance_sql "
 	select distinct
-		u.user_id,
 		im_name_from_user_id(u.user_id) as user_name,
 		im_name_from_user_id(u.user_id) as name,
-		im_freelance_skill_list(u.user_id, :source_lang_skill_type) as source_langs,
-		im_freelance_skill_list(u.user_id, :target_lang_skill_type) as target_langs,
-		im_freelance_skill_list(u.user_id, :subject_area_skill_type) as subject_area
+		$skill_type_sql
+		u.user_id
 	from
 		users u,
 		group_member_map m, 
@@ -237,18 +239,23 @@ ad_proc im_freelance_trans_member_select_component {
 
     set table_rows [list]
     db_foreach freelance $freelance_sql {
-	set row [list $user_id $name $source_langs $target_langs $subject_area]
 
 	set sort_val 999999999
 	if {[info exists sort_hash($user_id)]} { set sort_val $sort_hash($user_id) }
-	lappend row $sort_val
+
+	set row [list $user_id $name $sort_val] 
+
+	foreach skill_type $skill_type_list {
+	    set skill_type_id $skill_type_hash($skill_type)
+	    lappend row [expr "\$skill_$skill_type_id"]
+	}
 
 	lappend table_rows $row
     }
 
-
     # Sort the keys according to sort_val (6th element)
-    set sorted_table_rows [qsort $table_rows [lambda {s} { lindex $s 5 }]]
+    set sorted_table_rows [qsort $table_rows [lambda {s} { lindex $s 2 }]]
+
 
     # ------------------------------------------------
     # Format the table header
@@ -256,10 +263,18 @@ ad_proc im_freelance_trans_member_select_component {
     set freelance_header_html "
 	<tr class=rowtitle>
 	  <td class=rowtitle>[_ intranet-freelance.Freelance]</td>
-	  <td class=rowtitle>[_ intranet-freelance.Source_Language]</td>
-	  <td class=rowtitle>[_ intranet-freelance.Target_Language]</td>
-	  <td class=rowtitle>[_ intranet-freelance.Subject_Area]</td>
     "
+
+    # Add a column for each skill type
+    foreach skill_type $skill_type_list {
+	regsub { } $skill_type "_" skill_type_mangled
+	append freelance_header_html "
+	    <td class=rowtitle>[lang::message::lookup "" intranet-freelance.$skill_type_mangled $skill_type]</td>
+	"
+	incr colspan
+    }
+
+    # Add a column for each UoM where there is a price per user.
     foreach uom_tuple $uom_listlist {
 	set title [lindex $uom_tuple 1]
 	set dir_select ""
@@ -290,19 +305,22 @@ ad_proc im_freelance_trans_member_select_component {
 
         set user_id [lindex $freelance_row 0]
 	set name [lindex $freelance_row 1]
-	set source_langs [lindex $freelance_row 2]
-	set target_langs [lindex $freelance_row 3]
-	set subject_area [lindex $freelance_row 4]
 	
 	append freelance_body_html "
 	<tr$bgcolor([expr $ctr % 2])>\n"
 
 	append freelance_body_html "
 	  <td><a href=users/view?[export_url_vars user_id]><nobr>$name</nobr></a></td>
-	  <td>$source_langs</td>
-	  <td>$target_langs</td>
-	  <td>$subject_area</td>
         "
+
+	# Add a column for each skill type
+	set col_cnt 3
+	foreach skill_type $skill_type_list {
+	    append freelance_body_html "
+                <td>[lindex $freelance_row $col_cnt]</td>
+            "
+	    incr col_cnt
+	}
 
 	foreach uom_tuple $uom_listlist {
 	    set uom_id [lindex $uom_tuple 0]
