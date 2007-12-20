@@ -33,7 +33,6 @@ ad_proc im_freelance_trans_member_select_component {
         return ""
     }
 
-
     # ------------------------------------------------
     # Parameter Logic
     # 
@@ -66,7 +65,7 @@ ad_proc im_freelance_trans_member_select_component {
     set default_role_id 1300
     
     # How many static columns?
-    set colspan 2
+    set colspan 3
 
     set bgcolor(0) " class=roweven "
     set bgcolor(1) " class=rowodd "
@@ -235,6 +234,50 @@ ad_proc im_freelance_trans_member_select_component {
 
 
     # ------------------------------------------------
+    # Check the times that every freelancer has worked with the current customer
+
+    # Get the customer
+    set customer_id [db_string source_lang "
+                select	company_id
+                from    im_projects
+                where   project_id = :object_id
+    " -default 0]
+
+    set worked_with_customer_sql "
+	select	f.user_id,
+		ww.cnt
+	from	($freelance_sql) f
+		LEFT OUTER JOIN (
+			select	count(*) as cnt,
+				user_id
+			from	(select	object_id_two as user_id,
+					p.project_id
+				from	acs_rels r,
+					im_projects p
+				where	p.company_id = :customer_id
+					and r.object_id_one = p.project_id
+				) ww
+			group by
+				user_id
+		) ww ON ww.user_id = f.user_id
+    "
+
+    db_foreach workd_with_customer $worked_with_customer_sql {
+
+	set cnt_pretty ""
+	switch $cnt {
+	     "" { set cnt_pretty [lang::message::lookup "" intranet-freelance-translation.never "never"] }
+	     0 { set cnt_pretty [lang::message::lookup "" intranet-freelance-translation.never "never"] }
+	     1 { set cnt_pretty [lang::message::lookup "" intranet-freelance-translation.once "once"] }
+	     2 { set cnt_pretty [lang::message::lookup "" intranet-freelance-translation.twice "twice"] }
+	     default { set cnt_pretty [lang::message::lookup "" intranet-freelance-translation.N_times "%cnt% times"] }
+	}
+	# Update the hash table cell
+	set key "$user_id"
+	set worked_with_hash($key) $cnt_pretty
+    }
+
+    # ------------------------------------------------
     # Mix Freelance Info with Prices
 
     set table_rows [list]
@@ -263,6 +306,7 @@ ad_proc im_freelance_trans_member_select_component {
     set freelance_header_html "
 	<tr class=rowtitle>
 	  <td class=rowtitle>[_ intranet-freelance.Freelance]</td>
+	  <td class=rowtitle>[lang::message::lookup "" intranet-freelance-translation.Worked_with_Customer "Worked With Cust"]</td>
     "
 
     # Add a column for each skill type
@@ -281,14 +325,12 @@ ad_proc im_freelance_trans_member_select_component {
 	if {$freel_trans_order_by == [string tolower $title]} {
 	    set dir_select "v"
 	}
-	
 	append freelance_header_html "
 		<td class=rowtitle>
 		<a href=[export_vars -base $current_url $var_list]&freel_trans_order_by=$title>$title</a>
 		$dir_select
 		</td>
 	"
-
 	incr colspan
     }
     append freelance_header_html "
@@ -309,8 +351,13 @@ ad_proc im_freelance_trans_member_select_component {
 	append freelance_body_html "
 	<tr$bgcolor([expr $ctr % 2])>\n"
 
+	set worked_with_cust ""
+	set key "$user_id"
+	if {[info exists worked_with_hash($key)]} { set worked_with_cust $worked_with_hash($key) }
+	
 	append freelance_body_html "
 	  <td><a href=users/view?[export_url_vars user_id]><nobr>$name</nobr></a></td>
+	  <td>$worked_with_cust</td>
         "
 
 	# Add a column for each skill type
