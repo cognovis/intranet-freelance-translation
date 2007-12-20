@@ -306,7 +306,7 @@ ad_proc im_freelance_trans_member_select_component {
     set freelance_header_html "
 	<tr class=rowtitle>
 	  <td class=rowtitle>[_ intranet-freelance.Freelance]</td>
-	  <td class=rowtitle>[lang::message::lookup "" intranet-freelance-translation.Worked_with_Customer "Worked With Cust"]</td>
+	  <td class=rowtitle>[lang::message::lookup "" intranet-freelance-translation.Worked_with_Customer_Before "Worked With Cust Before?"]</td>
     "
 
     # Add a column for each skill type
