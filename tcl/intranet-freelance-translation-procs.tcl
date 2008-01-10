@@ -180,7 +180,6 @@ ad_proc im_freelance_trans_member_select_component {
 	order by min(p.price)
     "
 
-
     db_foreach price_hash $price_sql {
 	set key "$user_id-$uom_id"
 
