@@ -29,12 +29,13 @@ select im_component_plugin__new (
 
 
 
-insert into im_views (view_id, view_name, visible_for) values (53, 'trans_freelancers_list', '');
 
 
 --------------------------------------------------------------
 -- TransFreelancersListPage
 --
+delete from im_views where view_id = 53;
+insert into im_views (view_id, view_name, visible_for) values (53, 'trans_freelancers_list', '');
 delete from im_view_columns where view_id = 53;
 
 insert into im_view_columns (column_id, view_id, group_id, column_name, 
