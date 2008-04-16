@@ -588,6 +588,10 @@ append table_header_html "</tr>\n"
 # 8. Format the Result Data
 # ---------------------------------------------------------------
 
+
+set s_word_price ""
+set hour_price ""
+
 set table_body_html ""
 set bgcolor(0) " class=roweven "
 set bgcolor(1) " class=rowodd "
