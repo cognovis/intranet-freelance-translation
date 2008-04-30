@@ -1,12 +1,14 @@
 -- upgrade-3.3.1.0.0-3.3.1.1.0.sql
 
+SELECT acs_log__debug('/packages/intranet-freelance-translation/sql/postgresql/upgrade/upgrade-3.3.1.0.0-3.3.1.1.0.sql','');
+
 
 --------------------------------------------------------------
 -- TransFreelancersListPage
 --
+delete from im_view_columns where view_id = 53;
 delete from im_views where view_id = 53;
 insert into im_views (view_id, view_name, visible_for) values (53, 'trans_freelancers_list', '');
-delete from im_view_columns where view_id = 53;
 
 insert into im_view_columns (column_id, view_id, group_id, column_name, 
 column_render_tcl, extra_select, extra_from, extra_where, sort_order, 
