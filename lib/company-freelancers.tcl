@@ -12,6 +12,8 @@ im_company_permissions $user_id $company_id view read write admin
 if { !$read } { return "" }
 
 set sql "
+
+select * from (
     select 
         distinct on(user_id) user_id, 
         im_name_from_user_id(user_id, 1) as name,
@@ -39,10 +41,13 @@ set sql "
                    tt.other_id = u.user_id)
             and u.user_id in (select member_id from group_distinct_member_map m where group_id = '465')
         order by 
-            u.user_id,
-            o.creation_date DESC
-    ) f
-    limit 50;
+            u.user_id
+        ) f
+) g 
+
+order by 
+	last_task_assignment DESC 
+limit 50
 "
 
 set tr ""
@@ -50,16 +55,16 @@ set html_output ""
 set ctr 0
 
 db_foreach r $sql {
-    append tr "<tr><td>$name</td><td>last_task_assignment</td><td>$status</td></tr>"
+    append tr "<tr class='roweven'><td>$name</td><td>$last_task_assignment</td><td>$status</td></tr>"
     incr ctr
 }
 
 if { "" != $tr } {
-    set html_output "<table cellpadding='0' cellspacing='0' border='0'>\n
+    set html_output "<table cellpadding='3' cellspacing='3' border='0'>\n
 	<tr>\n
-		<td>[lang::message::lookup "" intranet-core.Name "Name"]</td>\n
-		<td>[lang::message::lookup "" intranet-translation-freelance.LastAssignment "Last Assignment"]</td>\n
-		<td>[lang::message::lookup "" intranet-translation-freelance.UserStatus "Status"]</td>\n
+		<td class='rowtitle'>[lang::message::lookup "" intranet-core.Name "Name"]</td>\n
+		<td class='rowtitle'>[lang::message::lookup "" intranet-translation-freelance.LastAssignment "Last Assignment"]</td>\n
+		<td class='rowtitle'>[lang::message::lookup "" intranet-translation-freelance.UserStatus "Status"]</td>\n
 	</tr>
 	$tr\n
 	</table>"
