@@ -519,3 +519,14 @@ ad_proc im_freelance_trans_member_select_component {
     return $select_freelance
 }
 
+
+ad_proc -public im_company_freelancer_component {
+    company_id
+    return_url
+} {
+    returns a list of freelancers that worked for that company
+} {
+    set params [list [list company_id $company_id] [list return_url $return_url]]
+    set result [ad_parse_template -params $params "/packages/intranet-freelance-translation/lib/company-freelancers"]
+    return [string trim $result]
+}
