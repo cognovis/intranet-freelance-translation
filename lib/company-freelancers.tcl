@@ -11,6 +11,11 @@ im_company_permissions $user_id $company_id view read write admin
 
 if { !$read } { return "" }
 
+set where_in ""
+if { "" != $project_status_ids } {
+    set where_in "and p.project_status_id in ([join $project_status_ids ,])"
+}
+
 set sql "
 
 select * from (
@@ -32,6 +37,7 @@ select * from (
 		and r.object_id_two = f.user_id
 		and r.object_id_one = p.project_id
 		and p.parent_id is null
+		$where_in
 	 ) as number_of_projects
     from (
 	select 
@@ -47,6 +53,7 @@ select * from (
 		and r.rel_type = 'im_biz_object_member'
 		and r.object_id_two in (select member_id from group_distinct_member_map m where group_id = '465')
 		and r.object_id_one = p.project_id
+		$where_in
         order by
             r.object_id_two
      ) f

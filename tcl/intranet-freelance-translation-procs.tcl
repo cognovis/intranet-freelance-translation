@@ -522,11 +522,15 @@ ad_proc im_freelance_trans_member_select_component {
 
 ad_proc -public im_company_freelancer_component {
     company_id
-    return_url
+    project_status_ids
 } {
-    returns a list of freelancers that worked for that company
+    Returns a list of freelancers that worked for that company
+    Do determine the number of projects a freelancer worked in,
+    only projects with status_id as listed in parameter 'project_status_ids'
+    are considered.
+
 } {
-    set params [list [list company_id $company_id] [list return_url $return_url]]
+    set params [list [list company_id $company_id] [list project_status_ids $project_status_ids]]
     set result [ad_parse_template -params $params "/packages/intranet-freelance-translation/lib/company-freelancers"]
     return [string trim $result]
 }
