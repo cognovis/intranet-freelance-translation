@@ -15,36 +15,42 @@ set sql "
 
 select * from (
     select 
-        distinct on(user_id) user_id, 
+        distinct on(f.user_id) user_id, 
         im_name_from_user_id(user_id, 1) as name,
-        to_char(creation_date, 'YYYY-MM-DD') as last_task_assignment,
-        (select member_state from cc_users where user_id = f.user_id) as status
+        to_char(start_date, 'YYYY-MM-DD') as last_task_assignment,
+        (select member_state from cc_users where user_id = f.user_id) as status,
+    	(select 
+    		count(*)
+	from 
+	 	im_projects p, 
+		im_companies c,
+		acs_rels r
+	where 
+	 	p.company_id = c.company_id
+		and c.company_id = :company_id
+	 	and r.rel_type = 'im_biz_object_member'
+		and r.object_id_two = f.user_id
+		and r.object_id_one = p.project_id
+		and p.parent_id is null
+	 ) as number_of_projects
     from (
-        select 
-            u.user_id,
-            o.creation_date
-        from 
-            im_trans_tasks tt, 
-            im_companies c, 
-            im_projects p,
-            users u,
-            acs_objects o
-        where 
-            tt.project_id = p.project_id 
-            and c.company_id = p.company_id
-            and c.company_id = :company_id
-            and o.object_id = tt.task_id
-            and (
-                   tt.trans_id = u.user_id OR 
-                   tt.edit_id = u.user_id OR
-                   tt.proof_id = u.user_id OR
-                   tt.other_id = u.user_id)
-            and u.user_id in (select member_id from group_distinct_member_map m where group_id = '465')
-        order by 
-            u.user_id
-        ) f
+	select 
+	  	r.object_id_two as user_id,
+		p.start_date
+	from 
+		im_projects p, 
+		im_companies c,
+		acs_rels r
+	where 
+		p.company_id = c.company_id
+		and c.company_id = :company_id
+		and r.rel_type = 'im_biz_object_member'
+		and r.object_id_two in (select member_id from group_distinct_member_map m where group_id = '465')
+		and r.object_id_one = p.project_id
+        order by
+            r.object_id_two
+     ) f
 ) g 
-
 order by 
 	last_task_assignment DESC 
 limit 50
@@ -55,7 +61,12 @@ set html_output ""
 set ctr 0
 
 db_foreach r $sql {
-    append tr "<tr class='roweven'><td>$name</td><td>$last_task_assignment</td><td>$status</td></tr>"
+    append tr "<tr class='roweven'>"
+    append tr "        <td><a href=\"/intranet/users/view?user_id=$user_id\">$name</a></td>"
+    append tr "	       <td>$last_task_assignment</td>"
+    append tr "	       <td align='center'>$number_of_projects</td>"
+    append tr "	       <td>$status</td></tr>"
+    append tr "</tr>"
     incr ctr
 }
 
@@ -64,6 +75,7 @@ if { "" != $tr } {
 	<tr>\n
 		<td class='rowtitle'>[lang::message::lookup "" intranet-core.Name "Name"]</td>\n
 		<td class='rowtitle'>[lang::message::lookup "" intranet-translation-freelance.LastAssignment "Last Assignment"]</td>\n
+		<td class='rowtitle'>[lang::message::lookup "" intranet-translation-freelance.NumberOfProjects "Number <br>of Projects"]</td>\n
 		<td class='rowtitle'>[lang::message::lookup "" intranet-translation-freelance.UserStatus "Status"]</td>\n
 	</tr>
 	$tr\n
