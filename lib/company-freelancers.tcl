@@ -55,11 +55,13 @@ select * from (
 		and r.object_id_one = p.project_id
 		$where_in
         order by
+	    p.start_date DESC,
             r.object_id_two
      ) f
 ) g 
 order by 
-	last_task_assignment DESC 
+	last_task_assignment DESC,
+	number_of_projects DESC 
 limit 50
 "
 
