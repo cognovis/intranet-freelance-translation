@@ -20,7 +20,7 @@ set sql "
 
 select * from (
     select 
-        distinct on(f.user_id) user_id, 
+        user_id, 
         im_name_from_user_id(user_id, 1) as name,
         to_char(start_date, 'YYYY-MM-DD') as last_task_assignment,
         (select member_state from cc_users where user_id = f.user_id) as status,
@@ -41,7 +41,7 @@ select * from (
 	 ) as number_of_projects
     from (
 	select 
-	  	r.object_id_two as user_id,
+		distinct on(r.object_id_two) object_id_two as user_id,
 		p.start_date
 	from 
 		im_projects p, 
@@ -55,8 +55,8 @@ select * from (
 		and r.object_id_one = p.project_id
 		$where_in
         order by
-	    p.start_date DESC,
-            r.object_id_two
+            r.object_id_two,
+	    p.start_date DESC
      ) f
 ) g 
 order by 
